@@ -26,6 +26,7 @@
 
 #include <sensor_msgs/LaserScan.h>
 
+#include <boost/lexical_cast.hpp>
 #include <ros/ros.h>
 
 namespace lidar_lite {
@@ -33,23 +34,38 @@ namespace lidar_lite {
 int
 run(int argc, char **argv)
 {
-  ros::init(argc, argv, "lidar_lite_node");
-  ros::NodeHandle nh;
+  ros::init(argc, argv, "lidar_lite");
 
   std::string frame_id = "lidar_lite";
   int32_t i2c_bus = LidarLiteDriver::DEFAULT_I2C_BUS;
-  int32_t i2c_address = LidarLiteDriver::DEFAULT_I2C_ADDR;
+  uint8_t i2c_address = LidarLiteDriver::DEFAULT_I2C_ADDR;
 
-  nh.param("frame_id", frame_id, frame_id);
-  nh.param("i2c_bus", i2c_bus, i2c_bus);
-  nh.param("i2c_address", i2c_address, i2c_address);
+  ros::NodeHandle nh;
+  try {
+    ros::NodeHandle nh_("~");
+    nh_.param("frame_id", frame_id, frame_id);
+    nh_.param("i2c_bus", i2c_bus, i2c_bus);
+
+    std::string i2c_address_str = std::to_string(i2c_address);
+    nh_.param("i2c_address", i2c_address_str, i2c_address_str);
+
+    i2c_address = (uint8_t)std::stoul(i2c_address_str, nullptr, 0);
+
+    ROS_INFO("Read params: {frame_id: %s, i2c_bus: %i, i2c_address: 0x%0x}",
+             frame_id.c_str(), i2c_bus, i2c_address);
+  }
+  catch (boost::bad_lexical_cast const& ex) {
+    ROS_ERROR("Failed to read params: %s", ex.what());
+    return 1;
+  }
 
   ros::Publisher publisher = nh.advertise<sensor_msgs::LaserScan>("scan", 1024);
 
-  LidarLiteDriver driver((uint8_t)i2c_bus, (uint8_t)i2c_address);
+  LidarLiteDriver driver((uint8_t)i2c_bus, i2c_address);
+  driver.configure(LidarLiteDriver::OperationMode::DEFAULT);
 
   while (ros::ok()) {
-    auto distance = driver.distance(false);
+    auto distance = driver.distance(true);
     if (!distance) {
       continue;
     }
@@ -62,8 +78,8 @@ run(int argc, char **argv)
     msg.angle_max = 0.;
     msg.angle_increment = 1.;
     msg.time_increment = 0.;
-    msg.range_min = 0.001;
-    msg.range_max = 50. * 100;
+    msg.range_min = distance->value; // 0.001;
+    msg.range_max = distance->value; // 50. * 100;
     msg.ranges.push_back(distance->value);
 
     publisher.publish(msg);

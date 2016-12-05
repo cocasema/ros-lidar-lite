@@ -29,8 +29,8 @@
 #include <ratio>
 #include <string>
 
-namespace mraa {
-class I2c;
+namespace io {
+class I2C;
 }
 
 namespace lidar_lite {
@@ -82,23 +82,25 @@ public:
   // default I2C address. Re-initialization takes approximately 22ms.
   bool reset();
 
+  uint16_t uint_id();
+
   using centimeters = lidar_lite::distance<uint16_t, std::centi>;
   boost::optional<centimeters> distance(bool bias_correction);
 
 private:
   bool write(uint8_t addr, uint8_t value);
 
-  bool read(uint8_t addr, size_t bytes, uint8_t* value, bool monitor_busy_flag);
+  bool read(uint8_t addr, uint8_t* value, size_t bytes, bool monitor_busy_flag);
 
   template <typename Data>
   bool read(uint8_t addr, Data* value, bool monitor_busy_flag) {
-    return read(addr, sizeof(*value), static_cast<uint8_t*>(value), monitor_busy_flag);
+    // TODO: fix sizeof() for arrays
+    return read(addr, reinterpret_cast<uint8_t*>(value), sizeof(*value), monitor_busy_flag);
   }
 
   uint8_t i2c_bus_;
   uint8_t i2c_address_;
-  std::string name_;
-  std::unique_ptr<mraa::I2c> i2c_;
+  std::unique_ptr<io::I2C> i2c_;
 };
 
 } // namespace lidar_lite

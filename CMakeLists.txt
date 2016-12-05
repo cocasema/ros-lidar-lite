@@ -150,7 +150,6 @@ add_executable(lidar_lite_node
 target_link_libraries(lidar_lite_node
   ${catkin_LIBRARIES}
   lidar_lite
-  mraa
 )
 
 set_property(TARGET lidar_lite_node PROPERTY CXX_STANDARD 11)

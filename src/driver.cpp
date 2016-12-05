@@ -24,8 +24,8 @@
 
 #include "lidar_lite/driver.h"
 
-#include <boost/algorithm/hex.hpp>
-#include <mraa.hpp>
+#include "io/i2c.h"
+
 #include <ros/ros.h>
 
 namespace lidar_lite {
@@ -110,26 +110,64 @@ enum class StatusFlags : uint8_t {
   // 1: Device is busy taking a measurement
 };
 
-uint8_t& operator &=(uint8_t& value, StatusFlags flags) {
-  value &= (uint8_t)flags;
-  return value;
+uint8_t operator &(uint8_t value, StatusFlags flags) {
+  return value & (uint8_t)flags;
+}
+
+uint8_t operator &(StatusFlags value, StatusFlags flags) {
+  return (uint8_t)value & (uint8_t)flags;
+}
+
+std::string to_string(StatusFlags flags)
+{
+  std::string str;
+  str.append("{");
+  if (flags & StatusFlags::PROCESS_ERROR     ) str.append(" PROCESS_ERROR");
+  if (flags & StatusFlags::HEALTH            ) str.append(" HEALTH");
+  if (flags & StatusFlags::SECONDARY_RETURN  ) str.append(" SECONDARY_RETURN");
+  if (flags & StatusFlags::INVALID_SIGNAL    ) str.append(" INVALID_SIGNAL");
+  if (flags & StatusFlags::SIGNAL_OVERFLOW   ) str.append(" SIGNAL_OVERFLOW");
+  if (flags & StatusFlags::REFERENCE_OVERFLOW) str.append(" REFERENCE_OVERFLOW");
+  if (flags & StatusFlags::BUSY              ) str.append(" BUSY");
+  str.append(" }");
+  return str;
+}
+
+char const* to_cstr(LidarLiteDriver::OperationMode op_mode)
+{
+#define CASE(NAME) case LidarLiteDriver::OperationMode::NAME: return #NAME;
+  switch (op_mode) {
+    CASE(DEFAULT);
+    CASE(SHORT_RANGE_HIGH_SPEED);
+    CASE(DEFAULT_RANGE_HIGHER_SPEED_SHORT_RANGE);
+    CASE(MAXIMUM_RANGE);
+    CASE(HIGH_SENSITIVITY_DETECTION);
+    CASE(LOW_SENSITIVITY_DETECTION);
+    default: return "<INVALID>";
+  }
+#undef CASE
 }
 
 /*
  * LidarLiteDriver
  */
 LidarLiteDriver::LidarLiteDriver(uint8_t i2c_bus, uint8_t i2c_address)
-    : i2c_bus_(i2c_bus),
-      i2c_address_(i2c_address),
-      i2c_(new mraa::I2c(i2c_bus))
+  : i2c_(new io::I2C(i2c_bus, i2c_address))
 {
-  using boost::algorithm::hex;
+  ROS_INFO("Created");
 
-  name_ = "LidarLiteDriver[0x";
-  name_ += hex(std::to_string(i2c_address));
-  name_ += "@0x";
-  name_ += hex(std::to_string(i2c_bus));
-  name_ += "]";
+  if (!i2c_->init()) {
+    ROS_ERROR("Failed to init i2c");
+  }
+
+  uint8_t status = 0;
+  if (read(STATUS, &status, false)) {
+    ROS_INFO("Status: 0x%02x %s", status, to_string((StatusFlags)status).c_str());
+    ROS_INFO("UnitID: 0x%04x", uint_id());
+  }
+  else {
+    ROS_ERROR("Failed to read STATUS");
+  }
 }
 
 LidarLiteDriver::~LidarLiteDriver()
@@ -138,6 +176,8 @@ LidarLiteDriver::~LidarLiteDriver()
 bool
 LidarLiteDriver::configure(OperationMode op_mode)
 {
+  ROS_INFO("Configure with op_mode=%i-%s", (int)op_mode, to_cstr(op_mode));
+
   switch (op_mode) {
     case OperationMode::DEFAULT:
       write(SIG_COUNT_VAL, SIG_COUNT_VAL_DEFAULT);
@@ -185,6 +225,21 @@ LidarLiteDriver::reset()
   return write(ACQ_COMMAND, (uint8_t)AcqCommand::RESET);
 }
 
+uint16_t
+LidarLiteDriver::uint_id()
+{
+  uint16_t uint_id = -1;
+  if (!read(UNIT_ID_HIGH | READ_AUTO_INC_ADDR, &uint_id, false)) {
+    ROS_ERROR("Failed to read distance");
+    return 0;
+  }
+
+  uint_id = (uint_id << 8) | (uint_id >> 8);
+  ROS_DEBUG("UNIT_ID: 0x%04x", uint_id);
+
+  return uint_id;
+}
+
 boost::optional<LidarLiteDriver::centimeters>
 LidarLiteDriver::distance(bool bias_correction)
 {
@@ -192,18 +247,18 @@ LidarLiteDriver::distance(bool bias_correction)
              ? (uint8_t)AcqCommand::MEASURE_WITH_BIAS_CORRECTION
              : (uint8_t)AcqCommand::MEASURE_WO_BIAS_CORRECTION
   )) {
-    ROS_ERROR_NAMED(name_, "Failed to read distance - setting bias correction");
+    ROS_ERROR("Failed to read distance - setting bias correction");
     return {};
   }
 
-  uint8_t value[2];
-  if (!read(FULL_DELAY_HIGH | READ_AUTO_INC_ADDR, value, true)) {
-    ROS_ERROR_NAMED(name_, "Failed to read distance");
+  uint16_t distance = -1;
+  if (!read(FULL_DELAY_HIGH | READ_AUTO_INC_ADDR, &distance, true)) {
+    ROS_ERROR("Failed to read distance");
     return {};
   }
 
-  uint16_t distance = value[1];
-  distance += (uint16_t)value[0] << 8;
+  distance = (distance << 8) | (distance >> 8);
+  ROS_DEBUG("Distance: %u cm", distance);
 
   return centimeters{distance};
 }
@@ -211,40 +266,41 @@ LidarLiteDriver::distance(bool bias_correction)
 bool
 LidarLiteDriver::write(uint8_t addr, uint8_t value)
 {
-  auto result = i2c_->writeReg(addr, value);
-  if (result == mraa::SUCCESS) {
-    return true;
+  if (!i2c_->write_byte(addr, value)) {
+    ROS_ERROR("Failed to write 0x%02x to 0x%02x", value, addr);
+    return false;
   }
 
-  ROS_ERROR_NAMED(name_, "Failed to write %02x to %02x", value, addr);
-  return false;
+  return true;
 }
 
 bool
-LidarLiteDriver::read(uint8_t addr, size_t bytes, uint8_t* value, bool monitor_busy_flag)
+LidarLiteDriver::read(uint8_t addr, uint8_t* value, size_t bytes, bool monitor_busy_flag)
 {
-  uint8_t busy_flag = monitor_busy_flag;
-  for (size_t count = 0; count < 8192 && busy_flag; ++count) {
-    if (1 != i2c_->readBytesReg(STATUS, &busy_flag, sizeof(busy_flag))) {
-      ROS_ERROR_NAMED(name_, "Failed to read STATUS register");
+  bool busy_flag = monitor_busy_flag;
+  for (size_t count = 0; count < 100 && busy_flag; ++count) {
+    uint8_t status;
+    if (!i2c_->read_bytes(STATUS, &status, sizeof(status))) {
+      ROS_ERROR("Failed to read STATUS register");
       return false;
     }
-    busy_flag &= StatusFlags::BUSY;
+    ROS_DEBUG("Status: 0x%02x %s", status, to_string((StatusFlags)status).c_str());
+    busy_flag = !!(status & StatusFlags::BUSY);
+    usleep(1000);
   }
 
   if (busy_flag) {
-    ROS_ERROR_NAMED(name_, "Failed to read %zu byte(s) from %02x - busy", bytes, addr);
+    ROS_ERROR("Failed to read %zu byte(s) from 0x%02x - busy", bytes, addr);
     return false;
   }
 
-  if (bytes != i2c_->readBytesReg(addr, value, bytes)) {
-    ROS_ERROR_NAMED(name_, "Failed to read %zu byte(s) from %02x", bytes, addr);
+  if (!i2c_->read_bytes(addr, value, bytes)) {
+    ROS_ERROR("Failed to read %zu byte(s) from 0x%02x", bytes, addr);
     return false;
   }
 
-  ROS_DEBUG_NAMED(name_, "Successfully read %zu byte(s) from %02x", bytes, addr);
+  ROS_DEBUG("Successfully read %zu byte(s) from 0x%02x", bytes, addr);
   return true;
 }
 
 } // namespace lidar_lite
-
