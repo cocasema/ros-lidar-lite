@@ -74,13 +74,17 @@ run(int argc, char **argv)
     msg.header.frame_id = frame_id;
     msg.header.stamp = ros::Time::now();
 
+    float distance_in_meters = distance->value / 100.0;
+
     msg.angle_min = 0.;
     msg.angle_max = 0.;
     msg.angle_increment = 1.;
     msg.time_increment = 0.;
-    msg.range_min = distance->value; // 0.001;
-    msg.range_max = distance->value; // 50. * 100;
-    msg.ranges.push_back(distance->value);
+    //msg.scan_time = 0.;
+    msg.range_min = 0.;
+    msg.range_max = 40.;
+    msg.ranges.push_back(distance_in_meters);
+    msg.intensities.push_back(distance->value);
 
     publisher.publish(msg);
   }
