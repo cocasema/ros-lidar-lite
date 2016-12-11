@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package>
+  <name>lidar_lite</name>
+  <version>1.0.0</version>
+  <description>LIDAR Lite v3 driver</description>
+
+  <author email="github@cocasema.com">cocasema</author>
+  <maintainer email="github@cocasema.com">cocasema</maintainer>
+  <license>MIT</license>
+
+  <url type="github">https://github.com/cocasema/ros-lidar-lite</url>
+  <url type="garmin-lidar-lite-v3">https://buy.garmin.com/en-US/US/oem/sensors-and-boards/lidar-lite-v3/prod557294.html</url>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>roscpp</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+
+  <run_depend>roscpp</run_depend>
+  <run_depend>sensor_msgs</run_depend>
+</package>
