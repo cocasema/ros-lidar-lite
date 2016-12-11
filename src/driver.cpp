@@ -24,7 +24,7 @@
 
 #include "lidar_lite/driver.h"
 
-#include "io/i2c.h"
+#include "simple_io/i2c.h"
 
 #include <ros/ros.h>
 
@@ -152,7 +152,7 @@ char const* to_cstr(LidarLiteDriver::OperationMode op_mode)
  * LidarLiteDriver
  */
 LidarLiteDriver::LidarLiteDriver(uint8_t i2c_bus, uint8_t i2c_address)
-  : i2c_(new io::I2C(i2c_bus, i2c_address))
+  : i2c_(new simple_io::I2C(i2c_bus, i2c_address))
 {
   ROS_INFO("Created");
 

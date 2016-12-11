@@ -29,7 +29,7 @@
 #include <ratio>
 #include <string>
 
-namespace io {
+namespace simple_io {
 class I2C;
 }
 
@@ -100,7 +100,7 @@ private:
 
   uint8_t i2c_bus_;
   uint8_t i2c_address_;
-  std::unique_ptr<io::I2C> i2c_;
+  std::unique_ptr<simple_io::I2C> i2c_;
 };
 
 } // namespace lidar_lite
