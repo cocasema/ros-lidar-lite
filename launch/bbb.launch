@@ -1,6 +1,6 @@
 <launch>
   <node name="lidar_lite" pkg="lidar_lite" type="lidar_lite_node" output="screen" >
-    <param name="frame_id" value="test" />
+    <param name="frame_id" value="lidar_lite" />
     <param name="i2c_bus" value="2" />
     <param name="i2c_address" value="0x62"/>
   </node>
