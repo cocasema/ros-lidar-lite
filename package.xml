@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<package>
+<package format="2">
   <name>lidar_lite</name>
   <version>1.0.0</version>
   <description>LIDAR Lite v3 driver</description>
@@ -13,9 +13,8 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
-  <build_depend>roscpp</build_depend>
-  <build_depend>sensor_msgs</build_depend>
+  <depend>roscpp</depend>
+  <depend>sensor_msgs</depend>
 
-  <run_depend>roscpp</run_depend>
-  <run_depend>sensor_msgs</run_depend>
+  <exec_depend>message_runtime</exec_depend>
 </package>
