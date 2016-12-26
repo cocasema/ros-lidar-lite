@@ -266,7 +266,7 @@ LidarLiteDriver::distance(bool bias_correction)
 bool
 LidarLiteDriver::write(uint8_t addr, uint8_t value)
 {
-  if (!i2c_->write_byte(addr, value)) {
+  if (!i2c_->write(addr, value)) {
     ROS_ERROR("Failed to write 0x%02x to 0x%02x", value, addr);
     return false;
   }
@@ -280,7 +280,7 @@ LidarLiteDriver::read(uint8_t addr, uint8_t* value, size_t bytes, bool monitor_b
   bool busy_flag = monitor_busy_flag;
   for (size_t count = 0; count < 100 && busy_flag; ++count) {
     uint8_t status;
-    if (!i2c_->read_bytes(STATUS, &status, sizeof(status))) {
+    if (!i2c_->read(STATUS, &status)) {
       ROS_ERROR("Failed to read STATUS register");
       return false;
     }
@@ -294,7 +294,7 @@ LidarLiteDriver::read(uint8_t addr, uint8_t* value, size_t bytes, bool monitor_b
     return false;
   }
 
-  if (!i2c_->read_bytes(addr, value, bytes)) {
+  if (!i2c_->read(addr, value, bytes)) {
     ROS_ERROR("Failed to read %zu byte(s) from 0x%02x", bytes, addr);
     return false;
   }
