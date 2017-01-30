@@ -124,7 +124,7 @@ add_library(lidar_lite
   src/driver.cpp
 )
 
-set_property(TARGET lidar_lite PROPERTY CXX_STANDARD 11)
+set_property(TARGET lidar_lite PROPERTY CXX_STANDARD 14)
 set_property(TARGET lidar_lite PROPERTY CXX_STANDARD_REQUIRED ON)
 
 ## Add cmake target dependencies of the library
@@ -153,7 +153,7 @@ target_link_libraries(lidar_lite_node
   lidar_lite
 )
 
-set_property(TARGET lidar_lite_node PROPERTY CXX_STANDARD 11)
+set_property(TARGET lidar_lite_node PROPERTY CXX_STANDARD 14)
 set_property(TARGET lidar_lite_node PROPERTY CXX_STANDARD_REQUIRED ON)
 
 #############

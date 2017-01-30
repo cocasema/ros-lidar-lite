@@ -24,7 +24,7 @@
 
 #include "lidar_lite/driver.h"
 
-#include "simple_io/i2c.h"
+#include <simple_io/i2c.h>
 
 #include <ros/ros.h>
 
